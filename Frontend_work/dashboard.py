@@ -1,19 +1,15 @@
 import dash
 from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
-import requests
-# --- NEW: Dash Bootstrap Components for professional layout ---
 import dash_bootstrap_components as dbc 
+import requests 
 
-# --- Configuration ---
-API_URL = "http://127.0.0.1:8000/api/v1/alerts" 
+# --- Configuration (Kept for environment setup) ---
+ALERTS_URL = "http://127.0.0.1:8000/api/v1/alerts" 
 REFRESH_INTERVAL_MS = 5000 
-EXTERNAL_STYLESHEETS = [dbc.themes.SLATE] # Dark, modern theme for security dashboard
-
-# --- Dash App Setup ---
-app = dash.Dash(__name__, external_stylesheets=EXTERNAL_STYLESHEETS, title='UlinziMind AI Sentinel')
+EXTERNAL_STYLESHEETS = [dbc.themes.SLATE] 
 
 # --- Helper function for creating KPI Cards ---
 def make_kpi_card(title, value, color='primary', icon='info-circle'):
@@ -28,12 +24,16 @@ def make_kpi_card(title, value, color='primary', icon='info-circle'):
         style={"backgroundColor": "#2e2e2e"} # Slightly lighter than slate background
     )
 
-# --- Layout Definition ---
-app.layout = dbc.Container(fluid=True, children=[
-    html.H1("🇰🇪 UlinziMind AI Sentinel: Real-Time Intelligence", 
-            className="text-center my-4 text-primary"),
+# --- Main Dashboard Layout Component (The only thing exported) ---
+dashboard_layout = dbc.Container(fluid=True, children=[
+    # Sign out button and Title
+    dbc.Row([
+        dbc.Col(html.H1("🇰🇪 UlinziMind AI Sentinel: Real-Time Intelligence", 
+            className="text-center my-4 text-primary"), width=10),
+        dbc.Col(dbc.Button("Sign Out", id="sign-out-button", color="secondary", className="mt-4"), width=2, className="d-flex justify-content-end")
+    ], className="mb-4"),
     
-    # 1. KPI Row (Total Alerts, Max Risk, Peace Protocol Active)
+    # 1. KPI Row
     dbc.Row([
         dbc.Col(html.Div(id='kpi-total-alerts')),
         dbc.Col(html.Div(id='kpi-max-risk')),
@@ -85,37 +85,10 @@ app.layout = dbc.Container(fluid=True, children=[
             html.Div(id='live-alerts-table'),
         ]),
     ], className="mt-4"),
-    
-    # Hidden component to trigger the refresh interval and store raw data
-    dcc.Interval(
-        id='interval-component',
-        interval=REFRESH_INTERVAL_MS, 
-        n_intervals=0
-    ),
-    dcc.Store(id='raw-data-store'),
 ])
 
-# --- Callback: Fetch Data from FastAPI and Store ---
-@app.callback(
-    Output('raw-data-store', 'data'),
-    [Input('interval-component', 'n_intervals')]
-)
-def fetch_data(n):
-    try:
-        response = requests.get(API_URL, params={'count': 20}) # Fetch more data points
-        response.raise_for_status() 
-        data = response.json()
-        df = pd.DataFrame(data)
-        return df.to_dict('records') # Store data as a list of dicts
-    except requests.exceptions.ConnectionError:
-        print("ERROR: Could not connect to FastAPI server.")
-        return []
-    except Exception as e:
-        print(f"An unexpected error occurred during fetch: {e}")
-        return []
-
-# --- Callback: Update KPIs and Map/Table based on Filters ---
-@app.callback(
+# --- Core Visualization Logic (Keep this, just ensure it uses dcc.Store for input) ---
+@dash.callback(
     [Output('kpi-total-alerts', 'children'),
      Output('kpi-max-risk', 'children'),
      Output('kpi-peace-active', 'children'),
@@ -126,8 +99,18 @@ def fetch_data(n):
      Input('threat-dropdown', 'value')]
 )
 def update_dashboard_content(data, min_risk, threat_filter):
-    if not data:
-        return (make_kpi_card("Total Alerts", "N/A", "danger", "triangle-exclamation"),) * 3 + (px.scatter_mapbox(zoom=5, center={"lat": 0, "lon": 37}, mapbox_style="carto-darkmatter"), html.Div("No data available from API."))
+    # Handle the case where authentication failed or no data is available
+    if not data or data is None:
+        empty_fig = px.scatter_mapbox(zoom=5, center={"lat": 0, "lon": 37}, mapbox_style="carto-darkmatter")
+        empty_fig.update_layout(mapbox_style="carto-darkmatter", paper_bgcolor="#222222", font_color="white")
+        
+        return (
+            make_kpi_card("Total Alerts", "N/A", "danger", "triangle-exclamation"),
+            make_kpi_card("Max Risk Score", "0.00", "success", "fire-extinguisher"),
+            make_kpi_card("Peace Protocols Active", "0", "success", "hand-holding-heart"),
+            empty_fig, 
+            html.Div("No data available or authentication required.", className="text-center text-muted p-5")
+        )
 
     df = pd.DataFrame(data)
     
@@ -201,6 +184,4 @@ def update_dashboard_content(data, min_risk, threat_filter):
 
     return kpi_alerts, kpi_risk, kpi_peace, fig, table
 
-# --- Run the Dash App ---
-if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=8050)
+# We remove the main app.run() block and main layout definition from this file.
