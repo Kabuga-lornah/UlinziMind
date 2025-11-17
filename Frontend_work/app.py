@@ -55,12 +55,10 @@ app.index_string = f"""
             <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
             
             <script>
-                // Initialize Firebase App globally
                 const firebaseConfig = {json.dumps(FIREBASE_CONFIG)};
                 const app = firebase.initializeApp(firebaseConfig);
                 const auth = firebase.auth();
 
-                // Helper to update the JS-side error message
                 function updateJsStatus(id, message, isError = true) {{
                     const el = document.getElementById(id);
                     if (el) {{
@@ -69,13 +67,11 @@ app.index_string = f"""
                     }}
                 }}
 
-                // Expose client-side functions to be called by Dash
                 window.dash_clientside = Object.assign({{}}, window.dash_clientside, {{
                     firebaseAuth: {{
-                        // --- 1. Login Function ---
                         login: function(data) {{
                             if (!data || !data.email || !data.password) return null;
-                            updateJsStatus('login-status-js', ''); // Clear errors
+                            updateJsStatus('login-status-js', '');
                             
                             return new Promise((resolve) => {{
                                 auth.signInWithEmailAndPassword(data.email, data.password)
@@ -85,40 +81,32 @@ app.index_string = f"""
                                     }})
                                     .catch((error) => {{
                                         console.error("Firebase Login Error:", error);
-                                        const errorMessage = error.message.replace('Firebase: ', '');
-                                        updateJsStatus('login-status-js', `Login Failed: ${{errorMessage}}`);
+                                        updateJsStatus('login-status-js', error.message.replace('Firebase: ', ''));
                                         resolve(null);
                                     }});
                             }});
                         }},
 
-                        // --- 2. Register Function ---
                         register: function(data) {{
                             if (!data || !data.email || !data.password) return null;
-                            updateJsStatus('register-status-js', ''); // Clear errors
+                            updateJsStatus('register-status-js', '');
 
                             return new Promise((resolve) => {{
                                 auth.createUserWithEmailAndPassword(data.email, data.password)
                                     .then(() => {{
-                                        updateJsStatus('register-status-js', 'Registration successful! Redirecting to Login...', false);
-                                        // Return a flag to tell the Python side to redirect to login
+                                        updateJsStatus('register-status-js', 'Registration successful!', false);
                                         resolve('REGISTERED'); 
                                     }})
                                     .catch((error) => {{
                                         console.error("Firebase Register Error:", error);
-                                        const errorMessage = error.message.replace('Firebase: ', '');
-                                        updateJsStatus('register-status-js', `Registration Failed: ${{errorMessage}}`);
+                                        updateJsStatus('register-status-js', error.message.replace('Firebase: ', ''));
                                         resolve(null);
                                     }});
                             }});
                         }},
 
-                        // --- 3. Sign Out Function ---
                         signOut: function() {{
-                            auth.signOut().then(() => {{
-                                console.log("User signed out.");
-                            }});
-                            // Always return null to clear the token store
+                            auth.signOut();
                             return null;
                         }}
                     }}
@@ -126,10 +114,12 @@ app.index_string = f"""
             </script>
 
             {{%scripts%}}
+            {{%renderer%}}   <!-- ⭐ FIX: REQUIRED FOR DASH 3+ -->
         </footer>
     </body>
 </html>
 """
+
 
 # --- Main Layout Definition (Global Stores and Router) ---
 app.layout = html.Div(style={'backgroundColor': '#1C1C1C', 'minHeight': '100vh', 'padding': '10px'}, children=[
@@ -150,9 +140,7 @@ app.layout = html.Div(style={'backgroundColor': '#1C1C1C', 'minHeight': '100vh',
 ])
 
 
-# =================================================================
-# === PYTHON CALLBACKS (ROUTING, TOKEN MANAGEMENT, DATA FETCH) ======
-# =================================================================
+
 
 # --- 1. Clientside Callbacks to Run Firebase Auth JS ---
 
@@ -256,4 +244,4 @@ def fetch_data(n, token):
 # --- Run the Dash App ---
 if __name__ == '__main__':
     # You run this file now, not dashboard.py
-    app.run_server(debug=True, host='127.0.0.1', port=8050)
+    app.run(debug=True, host='127.0.0.1', port=8050)
