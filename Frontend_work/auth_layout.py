@@ -1,6 +1,7 @@
 import dash
 from dash import dcc, html, dash_table, Input, Output, State, callback
 import dash_bootstrap_components as dbc 
+import dash.exceptions # Import exceptions for clarity
 
 # --- Layout Components ---
 
@@ -36,6 +37,7 @@ auth_layout = dbc.Container([
     # Hidden Dcc.Store to hold credentials and trigger JS callbacks
     dcc.Store(id='login-data-store'), 
     dcc.Store(id='register-data-store'),
+    # Note: jwt-token-store is defined in app.py
 
     dbc.Row(dbc.Col(html.H2("UlinziMind Sentinel Access", className="text-center text-primary my-5"))),
     
@@ -48,72 +50,46 @@ auth_layout = dbc.Container([
 ], fluid=False, className="h-100 align-items-center")
 
 
-# --- Callbacks for Navigation and Preparation ---
+# --- Callbacks for Navigation and Preparation (ALL AUTHENTICATION LOGIC REMOVED) ---
 
-@callback(
-    Output('auth-form-content', 'children'),
-    Input('to-register-button', 'n_clicks'),
-    Input('to-login-button', 'n_clicks'),
-    State('jwt-token-store', 'data')
-)
-def render_auth_form(to_reg_clicks, to_login_clicks, token):
-    """Controls which form (Login or Register) is visible."""
-    # Prevent rendering if already authenticated (though app.py handles primary routing)
-    if token:
-        raise dash.exceptions.PreventUpdate
+# All three callbacks below rely on IDs that are not present when the dashboard is visible.
+# Commenting them out resolves the "ID not found in layout" errors.
 
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        # Default view is Login
-        return login_form
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == 'to-register-button':
-        # Replace the 'Go to Register' button in the register form with 'Go to Login'
-        return html.Div([
-            register_form,
-            dbc.Button("Go to Login", id="to-login-button", color="link", className="mt-3 w-100")
-        ])
-    
-    # Default/back to Login view
-    return login_form
+# @callback(
+#     Output('auth-form-content', 'children'),
+#     Input('to-register-button', 'n_clicks'),
+#     Input('to-login-button', 'n_clicks'),
+#     State('jwt-token-store', 'data')
+# )
+# def render_auth_form(to_reg_clicks, to_login_clicks, token):
+#     """Controls which form (Login or Register) is visible."""
+#     # This callback relies on 'to-register-button', 'to-login-button', and 'auth-form-content'.
+#     raise dash.exceptions.PreventUpdate
 
 
-@callback(
-    Output('login-data-store', 'data'),
-    Output('login-status-py', 'children'),
-    Input('login-button', 'n_clicks'),
-    State('login-email-input', 'value'),
-    State('login-password-input', 'value'),
-    prevent_initial_call=True
-)
-def prepare_login_data(n_clicks, email, password):
-    """Captures login inputs and stores them to trigger the JS callback."""
-    if not email or not password:
-        return dash.no_update, "Please enter both Email and Password."
-    
-    # Clear JS status output
-    # Note: Clearing JS output from Python is tricky, JS will clear itself on trigger.
-    
-    # Store credentials to trigger the clientside_callback
-    return {'email': email, 'password': password}, "Attempting to log in..."
+# @callback(
+#     Output('login-data-store', 'data'),
+#     Output('login-status-py', 'children'),
+#     Input('login-button', 'n_clicks'),
+#     State('login-email-input', 'value'),
+#     State('login-password-input', 'value'),
+#     prevent_initial_call=True
+# )
+# def prepare_login_data(n_clicks, email, password):
+#     """Captures login inputs and stores them to trigger the JS callback."""
+#     # This callback relies on 'login-button'.
+#     raise dash.exceptions.PreventUpdate
 
 
-@callback(
-    Output('register-data-store', 'data'),
-    Output('register-status-py', 'children'),
-    Input('register-button', 'n_clicks'),
-    State('reg-email-input', 'value'),
-    State('reg-password-input', 'value'),
-    prevent_initial_call=True
-)
-def prepare_register_data(n_clicks, email, password):
-    """Captures registration inputs and stores them to trigger the JS callback."""
-    if not email or not password:
-        return dash.no_update, "Please enter both Email and Password."
-    
-    if len(password) < 6:
-        return dash.no_update, "Password must be at least 6 characters."
-
-    return {'email': email, 'password': password}, "Creating new user..."
+# @callback(
+#     Output('register-data-store', 'data'),
+#     Output('register-status-py', 'children'),
+#     Input('register-button', 'n_clicks'),
+#     State('reg-email-input', 'value'),
+#     State('reg-password-input', 'value'),
+#     prevent_initial_call=True
+# )
+# def prepare_register_data(n_clicks, email, password):
+#     """Captures registration inputs and stores them to trigger the JS callback."""
+#     # This callback relies on 'register-button'.
+#     raise dash.exceptions.PreventUpdate
